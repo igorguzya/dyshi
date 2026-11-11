@@ -98,6 +98,8 @@
   .btn { flex: 1; border: 0; border-radius: 16px; padding: 15px 12px; font: inherit; font-weight: 700; cursor: pointer; background: var(--card); color: var(--text); box-shadow: var(--shadow); }
   .btn.primary { background: linear-gradient(135deg, var(--accent-2), var(--accent)); color: #fff; }
   .ghost { margin-top: 18px; background: none; border: 0; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; }
+  .thought p { font-size: 17px; line-height: 1.5; padding-left: 14px; border-left: 3px solid var(--accent); transition: opacity .25s ease; }
+  .thought .ghost { margin-top: 12px; padding: 0; }
   .result-title { font-size: 26px; font-weight: 800; margin-bottom: 8px; }
   @media (prefers-reduced-motion: reduce) { .orb { transition: none !important; } }
 </style>
@@ -123,6 +125,12 @@
       </div>
     </div>
     <div class="hero-note" id="heroNote"></div>
+  </section>
+
+  <section class="card thought" id="thoughtCard" style="display:none">
+    <h2>💡 Мысль дня</h2>
+    <p id="thought"></p>
+    <button class="ghost" id="moreThought" type="button">Ещё мысль →</button>
   </section>
 
   <section class="stats">
@@ -228,7 +236,6 @@
     $("sourceNote").textContent = "Сроки ВОЗ посчитаны для сигарет. При отказе от IQOS и вейпа тело тоже восстанавливается, но точных сроков для них пока нет.";
   }
   $("wins").textContent = fmtNum(wins);
-  if (!perDay) { $("secondEmoji").textContent = "⏱"; $("secondName").textContent = "часов свободы"; }
 
   function tick() {
     const now = Date.now() / 1000;
@@ -244,11 +251,21 @@
       return;
     }
     const days = Math.floor(free / D);
-    $("days").textContent = days;
-    $("daysLabel").textContent = plural(days, "день", "дня", "дней") + " без никотина";
+    if (days === 0) { // в первые сутки «0 дней» обескураживает — показываем часы (или минуты)
+      const hours = Math.floor(free / H), mins = Math.floor(free / 60);
+      $("days").textContent = hours || mins;
+      $("daysLabel").textContent = (hours ? plural(hours, "час", "часа", "часов") : plural(mins, "минута", "минуты", "минут")) + " без никотина";
+    } else {
+      $("days").textContent = days;
+      $("daysLabel").textContent = plural(days, "день", "дня", "дней") + " без никотина";
+    }
     $("clock").textContent = `${pad(Math.floor(free % D / H))}:${pad(Math.floor(free % H / 60))}:${pad(Math.floor(free % 60))}`;
     $("money").textContent = fmtNum(moneyWeek / 7 * free / D) + " ₽";
-    $("second").textContent = perDay ? fmtNum(perDay * free / D) : fmtNum(free / H);
+    const notSmoked = perDay * free / D;
+    const showNotSmoked = notSmoked >= 1; // до первой штуки «0 не выкурено» звучит обидно — показываем часы
+    $("secondEmoji").textContent = showNotSmoked ? "🚭" : "⏱";
+    $("secondName").textContent = showNotSmoked ? "не выкурено" : plural(Math.floor(free / H), "час", "часа", "часов") + " свободы";
+    $("second").textContent = showNotSmoked ? fmtNum(notSmoked) : fmtNum(free / H);
 
     const nextIdx = MILESTONES.findIndex(([sec]) => free < sec);
     const prevSec = nextIdx > 0 ? MILESTONES[nextIdx - 1][0] : 0;
@@ -273,6 +290,21 @@
   }
   tick();
   setInterval(tick, 1000);
+
+  // ---- мысль дня: тот же файл thoughts.json, что у бота; номер — по дню без никотина
+  fetch("thoughts.json").then((r) => r.json()).then((list) => {
+    if (!Array.isArray(list) || !list.length) return;
+    let i = Math.max(0, Math.floor((Date.now() / 1000 - quitAt) / D)) % list.length;
+    const p = $("thought");
+    p.textContent = list[i];
+    $("thoughtCard").style.display = "";
+    $("moreThought").addEventListener("click", () => {
+      i = (i + 1) % list.length;
+      p.style.opacity = 0;
+      setTimeout(() => { p.textContent = list[i]; p.style.opacity = 1; }, 200);
+      haptic("light");
+    });
+  }).catch(() => {});
 
   // ---- дыхание: вдох 4 с, задержка 4 с, выдох 6 с, 5 раз
   const PHASES = [["Вдох", "носом, медленно", 4, 1], ["Задержи", "не напрягайся", 4, 1], ["Выдох", "ртом, длинно", 6, .55]];
