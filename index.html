@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Дыши свободно</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --bg: #f3f7f5;
+    --card: #ffffff;
+    --text: #12201b;
+    --muted: #6b7f78;
+    --accent: #17a589;
+    --accent-2: #7fe3c0;
+    --ring-bg: #e2ece8;
+    --shadow: 0 6px 24px rgba(16, 60, 48, .08);
+    --radius: 22px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1715; --card: #18231f; --text: #e9f3ef; --muted: #8fa59d;
+      --ring-bg: #23332d; --shadow: 0 6px 24px rgba(0, 0, 0, .35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1715; --card: #18231f; --text: #e9f3ef; --muted: #8fa59d;
+    --ring-bg: #23332d; --shadow: 0 6px 24px rgba(0, 0, 0, .35);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--text); }
+  body {
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", Roboto, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding: 16px 16px calc(96px + env(safe-area-inset-bottom));
+    max-width: 520px; margin: 0 auto;
+    overflow-x: hidden;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; margin: 4px 2px 14px; }
+  .brand svg { width: 28px; height: 28px; }
+  .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; margin-bottom: 14px; }
+
+  /* главное кольцо */
+  .hero { display: flex; flex-direction: column; align-items: center; padding: 22px 18px 20px;
+          background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--accent-2) 28%, var(--card)) 0%, var(--card) 70%); }
+  .ring { position: relative; width: 220px; height: 220px; }
+  .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .ring circle { fill: none; stroke-width: 14; }
+  .ring .track { stroke: var(--ring-bg); }
+  .ring .bar { stroke: url(#grad); stroke-linecap: round; transition: stroke-dashoffset 1s ease; }
+  .ring .center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .big { font-size: 64px; font-weight: 800; letter-spacing: -2px; line-height: 1; }
+  .label { color: var(--muted); font-size: 14px; margin-top: 4px; }
+  .clock { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 17px; margin-top: 8px; }
+  .hero-note { color: var(--muted); font-size: 14px; margin-top: 14px; text-align: center; }
+
+  /* карточки цифр */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+  .stat { background: var(--card); border-radius: 18px; box-shadow: var(--shadow); padding: 14px 10px; text-align: center; min-width: 0; }
+  .stat .emoji { font-size: 22px; }
+  .stat .value { font-size: 20px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stat .name { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  /* следующий рубеж и лента */
+  h2 { font-size: 17px; margin-bottom: 12px; }
+  .next-title { font-weight: 600; }
+  .next-when { color: var(--muted); font-size: 14px; margin-top: 2px; }
+  .progress { height: 10px; border-radius: 10px; background: var(--ring-bg); margin-top: 12px; overflow: hidden; }
+  .progress > div { height: 100%; border-radius: 10px; background: linear-gradient(90deg, var(--accent-2), var(--accent)); transition: width 1s ease; }
+  .timeline { list-style: none; position: relative; }
+  .timeline li { display: grid; grid-template-columns: 28px 1fr; gap: 12px; padding: 8px 0; align-items: start; }
+  .dot { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700;
+         background: var(--ring-bg); color: var(--muted); margin-top: 1px; }
+  li.done .dot { background: var(--accent); color: #fff; }
+  li.next .dot { background: transparent; border: 2px solid var(--accent); color: var(--accent); }
+  li.locked { opacity: .55; }
+  .when { font-size: 13px; color: var(--muted); }
+  .note { color: var(--muted); font-size: 13px; margin-top: 10px; }
+
+  /* своя кнопка вне Telegram */
+  .fab { position: fixed; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); max-width: 488px; margin: 0 auto;
+         border: 0; border-radius: 16px; padding: 16px; font: inherit; font-weight: 700; color: #fff; cursor: pointer;
+         background: linear-gradient(135deg, var(--accent-2), var(--accent)); box-shadow: 0 10px 30px rgba(23, 165, 137, .35); }
+  .tg .fab { display: none; }
+
+  /* дыхание */
+  #breathe { display: none; min-height: calc(100vh - 140px); flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  body.breathing #home { display: none; }
+  body.breathing #breathe { display: flex; }
+  .orb-wrap { position: relative; width: 260px; height: 260px; display: grid; place-items: center; margin: 10px 0 26px; }
+  .orb { width: 260px; height: 260px; border-radius: 50%; transform: scale(.55);
+         background: radial-gradient(circle at 35% 30%, #c9fbe6, var(--accent-2) 45%, var(--accent) 100%);
+         box-shadow: 0 0 60px color-mix(in srgb, var(--accent) 45%, transparent); }
+  .orb-text { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 26px; text-shadow: 0 2px 10px rgba(0,0,0,.18); pointer-events: none; }
+  .phase-sub { color: var(--muted); font-size: 15px; min-height: 22px; }
+  .cycle { color: var(--muted); font-size: 14px; margin-top: 6px; }
+  .btn-row { display: flex; gap: 10px; margin-top: 22px; width: 100%; }
+  .btn { flex: 1; border: 0; border-radius: 16px; padding: 15px 12px; font: inherit; font-weight: 700; cursor: pointer; background: var(--card); color: var(--text); box-shadow: var(--shadow); }
+  .btn.primary { background: linear-gradient(135deg, var(--accent-2), var(--accent)); color: #fff; }
+  .ghost { margin-top: 18px; background: none; border: 0; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; }
+  .result-title { font-size: 26px; font-weight: 800; margin-bottom: 8px; }
+  @media (prefers-reduced-motion: reduce) { .orb { transition: none !important; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <defs><linearGradient id="grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7fe3c0"/><stop offset="1" stop-color="#17a589"/></linearGradient></defs>
+</svg>
+
+<main id="home">
+  <div class="brand">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="16" fill="#17a589"/><path d="M16 6v8m0 0-4 3m4-3 4 3" stroke="#fff" stroke-width="2.2" stroke-linecap="round" fill="none"/><path d="M11.5 15.5c-3 1-5 5-4.5 9 .2 1.4 1.7 1.8 2.8 1.1 2.5-1.6 3.6-5.6 2.7-9.7l-1-.4zM20.5 15.5c3 1 5 5 4.5 9-.2 1.4-1.7 1.8-2.8 1.1-2.5-1.6-3.6-5.6-2.7-9.7l1-.4z" fill="#fff"/></svg>
+    Дыши свободно
+  </div>
+
+  <section class="card hero">
+    <div class="ring">
+      <svg viewBox="0 0 220 220"><circle class="track" cx="110" cy="110" r="94"/><circle class="bar" id="ringBar" cx="110" cy="110" r="94"/></svg>
+      <div class="center">
+        <div class="big" id="days">0</div>
+        <div class="label" id="daysLabel">дней без никотина</div>
+        <div class="clock" id="clock">00:00:00</div>
+      </div>
+    </div>
+    <div class="hero-note" id="heroNote"></div>
+  </section>
+
+  <section class="stats">
+    <div class="stat"><div class="emoji">💰</div><div class="value" id="money">0 ₽</div><div class="name">сэкономлено</div></div>
+    <div class="stat"><div class="emoji" id="secondEmoji">🚭</div><div class="value" id="second">0</div><div class="name" id="secondName">не выкурено</div></div>
+    <div class="stat"><div class="emoji">💪</div><div class="value" id="wins">0</div><div class="name">побед над тягой</div></div>
+  </section>
+
+  <section class="card" id="nextCard">
+    <h2>Следующий шаг организма</h2>
+    <div class="next-title" id="nextTitle"></div>
+    <div class="next-when" id="nextWhen"></div>
+    <div class="progress"><div id="nextBar" style="width:0"></div></div>
+  </section>
+
+  <section class="card">
+    <h2>Как восстанавливается тело</h2>
+    <ul class="timeline" id="timeline"></ul>
+    <p class="note" id="sourceNote">По данным ВОЗ о пользе отказа от курения.</p>
+  </section>
+</main>
+
+<section id="breathe" aria-live="polite">
+  <div class="orb-wrap"><div class="orb" id="orb"></div><div class="orb-text" id="orbText">Вдох</div></div>
+  <div class="phase-sub" id="phaseSub">Тяга — как волна. Переждём её вместе.</div>
+  <div class="cycle" id="cycle">1 из 5</div>
+  <button class="ghost" id="earlyBtn" type="button">Уже отпустило 💪</button>
+  <div id="result" style="display:none; width:100%">
+    <div class="result-title">Ну как?</div>
+    <div class="phase-sub">Ответь честно — так я смогу помогать лучше.</div>
+    <div class="btn-row">
+      <button class="btn primary" type="button" data-sos="win">💪 Справился</button>
+      <button class="btn" type="button" data-sos="slip">😔 Закурил</button>
+    </div>
+  </div>
+</section>
+
+<button class="fab" id="fab" type="button">🫁 Тянет курить — подыши со мной</button>
+
+<script>
+(() => {
+  const tg = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData !== undefined ? window.Telegram.WebApp : null;
+  const inTelegram = !!(tg && tg.platform && tg.platform !== "unknown");
+  if (inTelegram) {
+    document.body.classList.add("tg");
+    tg.ready();
+    tg.expand();
+    document.documentElement.dataset.theme = tg.colorScheme === "dark" ? "dark" : "light";
+    try { tg.setHeaderColor("bg_color"); } catch (e) {}
+  }
+  const haptic = (kind) => { try { inTelegram && tg.HapticFeedback.impactOccurred(kind || "light"); } catch (e) {} };
+
+  // ---- данные из адреса (после #): q — время отказа (unix), n — штук в день, m — ₽ в неделю, w — победы, c — курил сигареты
+  const params = new URLSearchParams(location.hash.slice(1));
+  const demo = !params.has("q");
+  const quitAt = demo ? Date.now() / 1000 - 3.4 * 86400 : Number(params.get("q"));
+  const perDay = demo ? 15 : Number(params.get("n") || 0);
+  const moneyWeek = demo ? 1500 : Number(params.get("m") || 0);
+  const wins = demo ? 4 : Number(params.get("w") || 0);
+  const smokedCigs = demo ? true : params.get("c") === "1";
+
+  const H = 3600, D = 86400;
+  const MILESTONES = [
+    [20 * 60, "Пульс и давление приходят в норму"],
+    [12 * H, "Уровень угарного газа в крови снижается до нормы"],
+    [14 * D, "Улучшаются кровообращение и работа лёгких", "от 2 до 12 недель"],
+    [30 * D, "Уменьшаются кашель и одышка", "от 1 до 9 месяцев"],
+    [365 * D, "Риск болезней сердца примерно вдвое ниже, чем у курящего"],
+    [5 * 365 * D, "Риск инсульта — как у некурящего", "через 5–15 лет"],
+    [10 * 365 * D, "Риск рака лёгких примерно вдвое ниже, чем у курящего"],
+    [15 * 365 * D, "Риск болезней сердца — как у некурящего"],
+  ];
+
+  const plural = (n, one, few, many) => {
+    n = Math.abs(Math.floor(n)) % 100; const n1 = n % 10;
+    if (n1 === 1 && n !== 11) return one;
+    if (n1 >= 2 && n1 <= 4 && (n < 12 || n > 14)) return few;
+    return many;
+  };
+  const fmtNum = (x) => Math.floor(x).toLocaleString("ru-RU");
+  const span = (s) => {
+    s = Math.max(0, Math.floor(s));
+    const d = Math.floor(s / D), h = Math.floor(s % D / H), m = Math.floor(s % H / 60);
+    if (d >= 365) { const y = Math.floor(d / 365); return `${y} ${plural(y, "год", "года", "лет")}`; }
+    if (d) return `${d} ${plural(d, "день", "дня", "дней")} ${h} ч`;
+    if (h) return `${h} ч ${m} мин`;
+    return `${Math.max(m, 1)} мин`;
+  };
+  const pad = (x) => String(x).padStart(2, "0");
+  const $ = (id) => document.getElementById(id);
+
+  const R = 94, CIRC = 2 * Math.PI * R;
+  $("ringBar").style.strokeDasharray = CIRC;
+
+  // лента рубежей строится один раз, потом только меняются состояния
+  const items = MILESTONES.map(([sec, text, range]) => {
+    const li = document.createElement("li");
+    li.innerHTML = `<div class="dot"></div><div><div>${text}</div><div class="when"></div></div>`;
+    $("timeline").appendChild(li);
+    return { li, sec, range };
+  });
+  if (!smokedCigs) {
+    $("sourceNote").textContent = "Сроки ВОЗ посчитаны для сигарет. При отказе от IQOS и вейпа тело тоже восстанавливается, но точных сроков для них пока нет.";
+  }
+  $("wins").textContent = fmtNum(wins);
+  if (!perDay) { $("secondEmoji").textContent = "⏱"; $("secondName").textContent = "часов свободы"; }
+
+  function tick() {
+    const now = Date.now() / 1000;
+    const free = now - quitAt;
+    if (free < 0) { // ещё не начал
+      const left = -free;
+      $("days").textContent = Math.floor(left / D);
+      $("daysLabel").textContent = plural(Math.floor(left / D), "день", "дня", "дней") + " до старта";
+      $("clock").textContent = `${pad(Math.floor(left % D / H))}:${pad(Math.floor(left % H / 60))}:${pad(Math.floor(left % 60))}`;
+      $("heroNote").textContent = "Подготовься: убери пепельницы и зажигалки, предупреди близких.";
+      $("ringBar").style.strokeDashoffset = CIRC;
+      $("nextCard").style.display = "none";
+      return;
+    }
+    const days = Math.floor(free / D);
+    $("days").textContent = days;
+    $("daysLabel").textContent = plural(days, "день", "дня", "дней") + " без никотина";
+    $("clock").textContent = `${pad(Math.floor(free % D / H))}:${pad(Math.floor(free % H / 60))}:${pad(Math.floor(free % 60))}`;
+    $("money").textContent = fmtNum(moneyWeek / 7 * free / D) + " ₽";
+    $("second").textContent = perDay ? fmtNum(perDay * free / D) : fmtNum(free / H);
+
+    const nextIdx = MILESTONES.findIndex(([sec]) => free < sec);
+    const prevSec = nextIdx > 0 ? MILESTONES[nextIdx - 1][0] : 0;
+    if (nextIdx === -1) {
+      $("ringBar").style.strokeDashoffset = 0;
+      $("nextCard").style.display = "none";
+      $("heroNote").textContent = "Все рубежи пройдены. Ты — некурящий 🌟";
+    } else {
+      const [nextSec, nextText] = MILESTONES[nextIdx];
+      const part = (free - prevSec) / (nextSec - prevSec);
+      $("ringBar").style.strokeDashoffset = CIRC * (1 - part);
+      $("nextTitle").textContent = nextText;
+      $("nextWhen").textContent = "через " + span(nextSec - free);
+      $("nextBar").style.width = (part * 100).toFixed(2) + "%";
+      $("heroNote").textContent = "Кольцо — путь до следующего шага организма";
+    }
+    items.forEach(({ li, sec, range }, i) => {
+      li.className = free >= sec ? "done" : i === nextIdx ? "next" : "locked";
+      li.querySelector(".dot").textContent = free >= sec ? "✓" : i + 1;
+      li.querySelector(".when").textContent = free >= sec ? "уже позади" : (range ? range + " · " : "") + "через " + span(sec - free);
+    });
+  }
+  tick();
+  setInterval(tick, 1000);
+
+  // ---- дыхание: вдох 4 с, задержка 4 с, выдох 6 с, 5 раз
+  const PHASES = [["Вдох", "носом, медленно", 4, 1], ["Задержи", "не напрягайся", 4, 1], ["Выдох", "ртом, длинно", 6, .55]];
+  const CYCLES = 5;
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let timer = null;
+
+  function openBreathe() {
+    document.body.classList.add("breathing");
+    $("result").style.display = "none";
+    $("earlyBtn").style.display = "";
+    $("cycle").style.display = "";
+    if (inTelegram) { tg.MainButton.hide(); tg.BackButton.show(); }
+    $("fab").style.display = "none";
+    window.scrollTo(0, 0);
+    let cycle = 0, phase = 0;
+    const orb = $("orb");
+    function step() {
+      if (phase === PHASES.length) { phase = 0; cycle++; }
+      if (cycle >= CYCLES) return showResult();
+      const [name, sub, sec, scale] = PHASES[phase];
+      $("orbText").textContent = name;
+      $("phaseSub").textContent = sub;
+      $("cycle").textContent = `${cycle + 1} из ${CYCLES}`;
+      orb.style.transition = reduced ? "none" : `transform ${sec}s ease-in-out`;
+      orb.style.transform = `scale(${scale})`;
+      haptic(phase === 0 ? "medium" : "light");
+      phase++;
+      timer = setTimeout(step, sec * 1000);
+    }
+    orb.style.transition = "none"; orb.style.transform = "scale(.55)";
+    void orb.offsetWidth; // применить исходный размер, чтобы первый вдох плавно вырос
+    timer = setTimeout(step, 30);
+  }
+  function stopBreathe() { clearTimeout(timer); timer = null; }
+  function showResult() {
+    stopBreathe();
+    $("orbText").textContent = "🌿";
+    $("phaseSub").textContent = "";
+    $("cycle").style.display = "none";
+    $("earlyBtn").style.display = "none";
+    $("result").style.display = "";
+    try { inTelegram && tg.HapticFeedback.notificationOccurred("success"); } catch (e) {}
+  }
+  function closeBreathe() {
+    stopBreathe();
+    document.body.classList.remove("breathing");
+    if (inTelegram) { tg.BackButton.hide(); tg.MainButton.show(); }
+    $("fab").style.display = "";
+  }
+  function answer(kind) {
+    if (inTelegram) {
+      tg.sendData(JSON.stringify({ sos: kind })); // бот получает ответ, приложение закрывается
+    } else {
+      $("result").innerHTML = `<div class="result-title">${kind === "win" ? "Ты молодец! 💪" : "Бывает 🤝"}</div>
+        <div class="phase-sub">В Telegram этот ответ уйдёт боту.</div>`;
+      setTimeout(closeBreathe, 1800);
+    }
+  }
+
+  $("fab").addEventListener("click", openBreathe);
+  $("earlyBtn").addEventListener("click", showResult);
+  document.querySelectorAll("[data-sos]").forEach((b) => b.addEventListener("click", () => answer(b.dataset.sos)));
+  if (inTelegram) {
+    tg.MainButton.setParams({ text: "🫁 Тянет курить — подыши со мной", color: "#17a589", text_color: "#ffffff" });
+    tg.MainButton.onClick(openBreathe);
+    tg.MainButton.show();
+    tg.BackButton.onClick(closeBreathe);
+  }
+})();
+</script>
+</body>
+</html>
