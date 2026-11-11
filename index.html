@@ -178,6 +178,8 @@
     document.body.classList.add("tg");
     tg.ready();
     tg.expand();
+    // на телефоне прокрутка вниз сворачивала/закрывала приложение — отключаем это
+    try { tg.disableVerticalSwipes && tg.disableVerticalSwipes(); } catch (e) {}
     document.documentElement.dataset.theme = tg.colorScheme === "dark" ? "dark" : "light";
     try { tg.setHeaderColor("bg_color"); } catch (e) {}
   }
